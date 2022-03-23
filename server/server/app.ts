@@ -2,6 +2,8 @@ import http, { IncomingMessage, Server, ServerResponse } from "http";
 
 const fs = require("fs");
 
+// To check if the file exist from the beginning , else create a newfile
+
 let isExit = fs.existsSync(
   "/Users/user/Desktop/Dev/week-5-node-010-osigie/server/lib/data/products.json"
 );
@@ -20,31 +22,18 @@ let products = require("./data/products.json");
 
 interface ProductData {
   id?: string;
-  organization: string;
-  createdAt: string;
-  updatedAt: string;
-  products: string;
-  marketValue: string;
-  address: string;
-  ceo: string;
-  country: string;
+  organization?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  products?: string;
+  marketValue?: string;
+  address?: string;
+  ceo?: string;
+  country?: string;
 
-  noOfEmployees: number;
-  employees: string[];
+  noOfEmployees?: number;
+  employees?: string[];
 }
-
-// interface ProductData {
-//   organization: string;
-//   createdAt: string;
-//   updatedAt: string;
-//   products: string;
-//   marketValue: string;
-//   address: string;
-//   ceo: string;
-//   country: string;
-//   noOfEmployees: number;
-//   employees: string[];
-// }
 
 const server: Server = http.createServer(
   (req: IncomingMessage, res: ServerResponse) => {
@@ -110,44 +99,63 @@ async function getProduct(
   }
 }
 
+//function to get all data from the database
 function findAll() {
   return new Promise((resolve, reject) => {
     resolve(products);
   });
 }
 
-function findById(id: string) {
+//function to get data by id from the database
+function findById(id: string): Promise<object> {
   return new Promise((resolve, reject) => {
     const product = products.find((p: ProductData) => p.id === id);
     resolve(product);
   });
 }
 
-function writeData(filename: string, content: string) {
-  fs.writeFileSync(filename, JSON.stringify(content), "utf8", (err: Error) => {
-    if (err) {
-      console.log(err);
+//function to write data to the database
+function writeData() {
+  fs.writeFileSync(
+    "/Users/user/Desktop/Dev/week-5-node-010-osigie/server/lib/data/products.json",
+    JSON.stringify(products, null, 2),
+    "utf8",
+    (err: Error) => {
+      if (err) {
+        console.log(err);
+      }
     }
-  });
+  );
 }
 
+// function to create data and adding the ids
 function create(product: ProductData) {
   return new Promise((resolve, reject) => {
     const newProduct = { id: uuidv4(), ...product };
     products.push(newProduct);
     if (process.env.NODE_ENV !== "test") {
-      fs.writeFileSync(
-        "/Users/user/Desktop/Dev/week-5-node-010-osigie/server/lib/data/products.json",
-        JSON.stringify(products, null, 3),
-        "utf8",
-        (err: Error) => {
-          if (err) {
-            console.log(err);
-          }
-        }
-      );
+      writeData();
     }
     resolve(newProduct);
+  });
+}
+
+// function to get post data
+function getPostData(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    try {
+      let body: string = "";
+
+      req.on("data", (chunk) => {
+        body += chunk.toString();
+      });
+
+      req.on("end", () => {
+        resolve(body);
+      });
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
@@ -192,24 +200,6 @@ async function createProduct(req: IncomingMessage, res: ServerResponse) {
   }
 }
 
-function getPostData(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    try {
-      let body: string = "";
-
-      req.on("data", (chunk) => {
-        body += chunk.toString();
-      });
-
-      req.on("end", () => {
-        resolve(body);
-      });
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
 // @desc    Update a Product
 // @route   PUT /api/products/:id
 async function updateProduct(
@@ -218,7 +208,7 @@ async function updateProduct(
   id: string
 ) {
   try {
-    const company = await findById(id);
+    const company: ProductData = await findById(id);
 
     if (!company) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -240,16 +230,16 @@ async function updateProduct(
       } = JSON.parse(body);
 
       const product = {
-        organization,
-        createdAt,
+        organization: organization || company.organization,
+        createdAt: createdAt || company.createdAt,
         updatedAt: new Date().toISOString(),
-        products,
-        marketValue,
-        address,
-        ceo,
-        country,
-        noOfEmployees,
-        employees,
+        products: products || company.products,
+        marketValue: marketValue || company.marketValue,
+        address: address || company.address,
+        ceo: ceo || company.ceo,
+        country: country || company.country,
+        noOfEmployees: noOfEmployees || company.noOfEmployees,
+        employees: employees || company.employees,
       };
 
       const updProduct = await update(id, product);
@@ -262,40 +252,24 @@ async function updateProduct(
   }
 }
 
+//function to update the database
 function update(id: string, product: ProductData) {
   return new Promise((resolve, reject) => {
     const index = products.findIndex((p: { id: string }) => p.id === id);
     products[index] = { id, ...product };
     if (process.env.NODE_ENV !== "test") {
-      fs.writeFileSync(
-        "/Users/user/Desktop/Dev/week-5-node-010-osigie/server/lib/data/products.json",
-        JSON.stringify(products, null, 3),
-        "utf8",
-        (err: Error) => {
-          if (err) {
-            console.log(err);
-          }
-        }
-      );
+      writeData();
     }
     resolve(products[index]);
   });
 }
 
+//function to remove data from database
 function remove(id: string) {
   return new Promise((resolve, reject) => {
     products = products.filter((p: { id: string }) => p.id !== id);
     if (process.env.NODE_ENV !== "test") {
-      fs.writeFileSync(
-        "/Users/user/Desktop/Dev/week-5-node-010-osigie/server/lib/data/products.json",
-        JSON.stringify(products),
-        "utf8",
-        (err: Error) => {
-          if (err) {
-            console.log(err);
-          }
-        }
-      );
+      writeData();
     }
     resolve("");
   });
